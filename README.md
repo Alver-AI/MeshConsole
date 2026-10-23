@@ -11,7 +11,7 @@ A terminal chat client for [Meshtastic](https://meshtastic.org) radios — conne
 - **DM archive** — every DM is kept locally and browsable (`Ctrl+H`)
 - **Replies and tapbacks** — reply to a message or react with an emoji
 - **Emoji picker** — categories, search (English and Polish keywords), recently used
-- **Node list** — hops, distance, SNR, battery, last seen; DM, traceroute, NODEINFO, map, LocalStats and device metrics right from the list
+- **Node list** — hops, distance, SNR, battery, last seen; search by name, short name, ID or hardware; DM, traceroute, NODEINFO, map, LocalStats and device metrics right from the list
 - **Traceroute** — pick a node from a filterable list or `/tr NAME`
 - **Location** — send typed coordinates or one of the recent ones
 - **Radio health** (`Ctrl+O`) — channel utilization and TX airtime with a 1-hour trend, RX/TX counters, bad/duplicate packets, relay statistics, noise floor and "who relays to me"
@@ -81,7 +81,7 @@ Type `/help` in the app for the full reference.
 | `↑` / `↓` | Input history | `PgUp` / `PgDn` | Scroll messages |
 | `End` (twice) | Jump to newest message | `Esc` | Quit (asks first) |
 
-In the node list: `Enter`/`d` DM · `t` traceroute · `i` NODEINFO · `m` map · `s` LocalStats · `b` device metrics.
+In the node list: `Enter`/`d` DM · `t` traceroute · `i` NODEINFO · `m` map · `s` LocalStats · `b` device metrics · `/` or `Ctrl+F` search (`Esc` clears).
 
 ## Local data
 
