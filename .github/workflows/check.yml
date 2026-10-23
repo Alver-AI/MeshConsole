@@ -1,0 +1,28 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Compile
+        run: python -m py_compile mesh_console.py
+
+      - name: CHANGELOG has an entry for VERSION
+        run: |
+          version=$(sed -nE 's/^VERSION *= *"([^"]+)".*/\1/p' mesh_console.py)
+          echo "VERSION = $version"
+          if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::No '## [$version]' section in CHANGELOG.md"
+            exit 1
+          fi
