@@ -2860,6 +2860,8 @@ class NodesScreen(ModalScreen):
         Binding("b",        "metrics",    "Device metrics"),
     ]
 
+    _TITLE = "  Nodes in network   ·   / or Ctrl+F = search  "
+
     DEFAULT_CSS = """
     NodesScreen {
         align: center middle;
@@ -2882,7 +2884,7 @@ class NodesScreen(ModalScreen):
         text-align: center;
         color: $text-muted;
         width: 100%;
-        height: 1;
+        height: 2;
     }
     #nodes-filter {
         display: none;
@@ -2903,12 +2905,12 @@ class NodesScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="nodes-container"):
-            yield Label("  Nodes in network  ", id="nodes-title")
+            yield Label(self._TITLE, id="nodes-title")
             yield Input(placeholder="Search: name, short name, !id or hardware   "
                                     "(Enter/↓ = list, Esc = clear)", id="nodes-filter")
             yield DataTable(id="nodes-table", cursor_type="row")
-            yield Label("Enter/d DM  t Trace  i NodeInfo  m Map  s Stats  b Battery  / Search  Esc close"
-                        "   │   Hops 0 ● = heard directly", 
+            yield Label("Enter/d DM  t Trace  i NodeInfo  m Map  s Stats  b Battery\n"
+                        "Esc close   │   Hops 0 ● = heard directly",
                         id="nodes-hint")
 
     def on_mount(self):
@@ -2972,7 +2974,7 @@ class NodesScreen(ModalScreen):
         return all(w in hay for w in self._filter.split())
 
     def _update_title(self, shown: int, total: int) -> None:
-        title = "  Nodes in network  "
+        title = self._TITLE
         if self._filter:
             title = f"  Nodes in network — {shown} of {total} match “{self._filter}”  "
         try:
