@@ -2914,6 +2914,9 @@ class NodesScreen(ModalScreen):
     def on_mount(self):
         table = self.query_one(DataTable)
         table.add_columns("ID", "Name", "Hops", "Dist", "SNR", "Battery", "Last seen")
+        # the hidden search Input comes first and would otherwise take focus,
+        # swallowing the d/t/i/m/s/b/q keys as search text
+        table.focus()
         # refresh after first render — DataTable must be fully mounted
         self.call_after_refresh(self._refresh_table)
 
