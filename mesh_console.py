@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # https://github.com/Alver-AI/MeshConsole
 """
-mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.4.8
+mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.4.9
 Textual UI: upper area = messages, lower = input.
 
 Requirements:
@@ -27,6 +27,7 @@ Telemetry:
 
 Node list (Ctrl+N):
     Enter/d = DM   t = traceroute   i = request NODEINFO   m = open map
+    / or Ctrl+F = search (name, short name, !id or hardware; Esc clears)
     s = request LocalStats (radio health)   b = request device metrics
 
 Radio health (Ctrl+O):
@@ -467,7 +468,7 @@ class NodeDB:
 # Data model
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION      = "1.4.8"
+VERSION      = "1.4.9"
 MAX_MESSAGES = 500
 
 TAPBACK_EMOJI = [
@@ -2847,7 +2848,10 @@ class NodesScreen(ModalScreen):
     """Ctrl+N — node list with actions on the highlighted row.
     Dismisses with ("dm", nid) / ("tr", nid); NODEINFO and map stay in place."""
     BINDINGS = [
-        Binding("escape,q", "dismiss", "Close"),
+        Binding("escape",   "back",       "Close"),
+        Binding("q",        "dismiss",    "Close"),
+        # priority: otherwise the "/" that opens the search is typed into it
+        Binding("slash,ctrl+f", "search", "Search", priority=True),
         Binding("d",        "dm",         "DM"),
         Binding("t",        "traceroute", "Traceroute"),
         Binding("i",        "nodeinfo",   "NodeInfo"),
@@ -2880,6 +2884,13 @@ class NodesScreen(ModalScreen):
         width: 100%;
         height: 1;
     }
+    #nodes-filter {
+        display: none;
+        width: 100%;
+    }
+    #nodes-filter.shown {
+        display: block;
+    }
     DataTable {
         height: 1fr;
     }
@@ -2887,13 +2898,16 @@ class NodesScreen(ModalScreen):
 
     def __init__(self, state: MeshState):
         super().__init__()
-        self._state = state
+        self._state  = state
+        self._filter = ""          # folded search text; "" = show all nodes
 
     def compose(self) -> ComposeResult:
         with Vertical(id="nodes-container"):
             yield Label("  Nodes in network  ", id="nodes-title")
+            yield Input(placeholder="Search: name, short name, !id or hardware   "
+                                    "(Enter/↓ = list, Esc = clear)", id="nodes-filter")
             yield DataTable(id="nodes-table", cursor_type="row")
-            yield Label("Enter/d DM  t Trace  i NodeInfo  m Map  s Stats  b Battery  Esc close"
+            yield Label("Enter/d DM  t Trace  i NodeInfo  m Map  s Stats  b Battery  / Search  Esc close"
                         "   │   Hops 0 ● = heard directly", 
                         id="nodes-hint")
 
@@ -2936,9 +2950,71 @@ class NodesScreen(ModalScreen):
         return relative_position(self._state, lat, lon,
                                  pos.get("precisionBits"), compact=True) or "?"
 
+    # ── search ───────────────────────────────────────────────────────────────
+
+    def _matches(self, nid: str, *names: str) -> bool:
+        """Every word of the search text must appear in the node's ID, names
+        (live, saved and earlier ones) or hardware model."""
+        if not self._filter:
+            return True
+        entry = self._state.node_db.get_entry(nid)
+        with self._state.lock:
+            user = dict(self._state.nodes.get(nid, {}).get("user", {}))
+        hay = " ".join([nid, *names,
+                        user.get("longName") or "", user.get("shortName") or "",
+                        str(user.get("hwModel") or ""),
+                        entry.get("current_name") or "", str(entry.get("hw") or ""),
+                        *[str(n) for n in entry.get("name_history") or []]])
+        hay = _fold(hay)
+        return all(w in hay for w in self._filter.split())
+
+    def _update_title(self, shown: int, total: int) -> None:
+        title = "  Nodes in network  "
+        if self._filter:
+            title = f"  Nodes in network — {shown} of {total} match “{self._filter}”  "
+        try:
+            self.query_one("#nodes-title", Label).update(title)
+        except NoMatches:
+            pass
+
+    def action_search(self) -> None:
+        inp = self.query_one("#nodes-filter", Input)
+        inp.add_class("shown")
+        inp.focus()
+
+    @on(Input.Changed, "#nodes-filter")
+    def _on_filter_changed(self, event: Input.Changed) -> None:
+        event.stop()
+        self._filter = _fold(event.value.strip())
+        self._refresh_table()
+
+    @on(Input.Submitted, "#nodes-filter")
+    def _on_filter_submitted(self, event: Input.Submitted) -> None:
+        event.stop()
+        self.query_one(DataTable).focus()
+
+    def on_key(self, event) -> None:
+        if event.key == "down" and isinstance(self.focused, Input):
+            self.query_one(DataTable).focus()
+            event.stop()
+
+    def action_back(self) -> None:
+        """Esc: clear the search first (or leave the search field), close only
+        when there is nothing to clear."""
+        inp = self.query_one("#nodes-filter", Input)
+        if inp.value:
+            inp.value = ""                  # Input.Changed refreshes the table
+            inp.focus()
+        elif "shown" in inp.classes:
+            inp.remove_class("shown")
+            self.query_one(DataTable).focus()
+        else:
+            self.dismiss()
+
     def _refresh_table(self):
         table = self.query_one(DataTable)
         table.clear()
+        total = shown = 0
 
         # ── 1. nodes active in the current session ──────────────────────────
         with self._state.lock:
@@ -2961,6 +3037,10 @@ class NodesScreen(ModalScreen):
                 last_s += " ago"
             else:
                 last_s = "???"
+            total += 1
+            if not self._matches(nid, name):
+                continue
+            shown += 1
             table.add_row(nid, Text(_safe_col(name, 28)), self._hops_cell(nid, info),
                           self._dist_cell(nid), snr, battery, last_s, key=nid)
 
@@ -2989,10 +3069,15 @@ class NodesScreen(ModalScreen):
         # newest first (sorting by the age string put "10d" before "2d")
         db_candidates.sort(key=lambda x: x[3], reverse=True)
         for nid, name, age, _dt in db_candidates:
+            total += 1
+            if not self._matches(nid, name):
+                continue
+            shown += 1
             table.add_row(nid, Text(_safe_col(name, 28), style="dim"),
                           Text(self._hops_cell(nid, {}).plain, style="dim"),
                           Text(self._dist_cell(nid), style="dim"), "—", "—",
                           f"db·{age}", key=nid)
+        self._update_title(shown, total)
 
     # ── actions on the highlighted row ───────────────────────────────────────
 
@@ -4352,6 +4437,7 @@ MESSAGE LOG
 NODE LIST (Ctrl+N)
   Enter / d  DM     t  traceroute     i  request NODEINFO     m  open map
   s  LocalStats (radio health)        b  device metrics       Esc / q  close
+  / or Ctrl+F  search by name, short name, !id or hardware (Esc clears)
 DM ARCHIVE (Ctrl+H)   n / p  next / previous page             Esc / q  close
 EMOJI PICKER          arrows move, Tab / Shift+Tab (PgDn/PgUp) category,
                       letters search, Enter picks, Esc clears search / closes
