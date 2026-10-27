@@ -6,6 +6,12 @@ When `VERSION` in `mesh_console.py` changes on `main`, the release workflow
 creates the `vX.Y.Z` tag and a GitHub release whose notes are the section for
 that version below.
 
+## [1.5.0] - 2026-10-27
+
+**New**
+- MQTT status in the device information (`Ctrl+O`): on/off, uplink ↑ / downlink ↓ channels, server and topic, and the number of packets received via MQTT this session. A warning is shown when MQTT is enabled but cannot work (no network, no channel with uplink/downlink, or proxy to the phone app).
+- `/mqtt` command with the full MQTT details. The firmware does not report the broker connection itself, so packets received via MQTT are shown as the proof that it works.
+
 ## [1.4.9] - 2026-10-23
 
 **New**
