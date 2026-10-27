@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # https://github.com/Alver-AI/MeshConsole
 """
-mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.4.9
+mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.5.0
 Textual UI: upper area = messages, lower = input.
 
 Requirements:
@@ -50,6 +50,11 @@ Direct messages (PKI, firmware 2.7.15+ sends no DM without it):
     - nobody relayed it → automatic resend (max 3 transmissions)
     - relayed but not confirmed → never resent automatically; /retry by hand
     ✓ relayed (entered the mesh)   ✓✓ delivered (confirmed by the recipient)
+
+MQTT (Ctrl+O, device information):
+    MQTT OFF / MQTT ON ↑↓ (uplink/downlink channels) / ⚠ … when enabled
+    but it cannot work (no network, no channel, phone proxy).
+    /mqtt               details: server, topic, channels, packets via MQTT
 
 Help:
     /help               all commands, keys and shortcuts in the message log
@@ -468,7 +473,7 @@ class NodeDB:
 # Data model
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION      = "1.4.9"
+VERSION      = "1.5.0"
 MAX_MESSAGES = 500
 
 TAPBACK_EMOJI = [
@@ -577,6 +582,9 @@ class MeshState:
         self.nodeinfo_seen     : dict             = {}
         # node_id -> (unix time, hops) of the last packet received from it
         self.hops_seen         : dict             = {}
+        # packets received with viaMqtt=True (proof that MQTT downlink works)
+        self.mqtt_rx           : int              = 0
+        self.mqtt_last         : float            = 0.0
         # callback called by _process_queue when a new message arrives
         self.ui_notify         = None  # set by MeshApp
 
@@ -1733,6 +1741,123 @@ def leave_channel(state: "MeshState", idx: int) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# MQTT status (v1.5.0)
+# ══════════════════════════════════════════════════════════════════════════════
+# The device sends its module config (incl. moduleConfig.mqtt) when the client
+# connects. The firmware does NOT report whether the broker connection is
+# actually up — the only proof are packets that arrive with viaMqtt=True.
+# Config changed from another client is visible after reconnecting.
+
+MQTT_DEFAULT_SERVER = "mqtt.meshtastic.org"
+
+
+def mqtt_info(state: "MeshState") -> dict | None:
+    """MQTT configuration of the connected device, None if not loaded yet."""
+    try:
+        node = state.interface.localNode
+        mcfg = node.moduleConfig
+        if not mcfg.HasField("mqtt"):
+            return None
+        mq  = mcfg.mqtt
+        net = node.localConfig.network
+    except Exception:
+        return None
+    up, down = [], []
+    for c in _channels(state):
+        if _role_name(c) == "DISABLED":
+            continue
+        if c.settings.uplink_enabled:
+            up.append(c.index)
+        if c.settings.downlink_enabled:
+            down.append(c.index)
+    return {
+        "enabled":    bool(mq.enabled),
+        "address":    mq.address or MQTT_DEFAULT_SERVER,
+        "root":       mq.root or "msh",
+        "encryption": bool(mq.encryption_enabled),
+        "json":       bool(mq.json_enabled),
+        "tls":        bool(mq.tls_enabled),
+        "proxy":      bool(mq.proxy_to_client_enabled),
+        "map":        bool(mq.map_reporting_enabled),
+        "wifi":       bool(net.wifi_enabled),
+        "eth":        bool(net.eth_enabled),
+        "up":         up,
+        "down":       down,
+    }
+
+
+def mqtt_badge(state: "MeshState") -> tuple[str, str]:
+    """(label, style) for the header bar."""
+    if not state.connected:
+        return ("", "")
+    info = mqtt_info(state)
+    if info is None:
+        return ("MQTT ?", "dim")
+    if not info["enabled"]:
+        return ("MQTT OFF", "")
+    warn = "bold black on yellow"
+    if info["proxy"]:
+        # the device hands MQTT traffic to the connected client (normally the
+        # phone app) — Mesh Console does not proxy it
+        return ("⚠ MQTT proxy · inactive", warn)
+    if not (info["wifi"] or info["eth"] or state.tcp_mode):
+        return ("⚠ MQTT ON · no network", warn)
+    if not (info["up"] or info["down"]):
+        return ("⚠ MQTT ON · no channel", warn)
+    arrows = ("↑" if info["up"] else "") + ("↓" if info["down"] else "")
+    label = f"MQTT ON {arrows}"
+    with state.lock:
+        n = state.mqtt_rx
+    if n:
+        label += f" · {n} rx"
+    return (label, "bold")
+
+
+def show_mqtt(state: "MeshState") -> None:
+    """/mqtt — MQTT configuration and evidence of traffic."""
+    if not state.connected:
+        state.error("Not connected — MQTT status unknown.")
+        return
+    info = mqtt_info(state)
+    if info is None:
+        state.error("MQTT configuration not received from the device yet — try again "
+                    "in a moment.")
+        return
+    yn = lambda b: "yes" if b else "no"
+    label, _ = mqtt_badge(state)
+    state.system(f"MQTT: {label}")
+    if not info["enabled"]:
+        state.system("  The MQTT module is disabled in the device.")
+        return
+    state.system(f"  Server:        {info['address']}" + ("  (TLS)" if info["tls"] else ""))
+    state.system(f"  Root topic:    {info['root']}")
+    state.system(f"  Encryption:    {yn(info['encryption'])}   JSON: {yn(info['json'])}   "
+                 f"map reporting: {yn(info['map'])}")
+    net = [n for n, on in (("WiFi", info["wifi"]), ("Ethernet", info["eth"])) if on]
+    if state.tcp_mode and not net:
+        net = ["WiFi/Ethernet (we are connected over TCP)"]
+    state.system(f"  Network:       {', '.join(net) or 'none'}"
+                 + ("   • client proxy ON" if info["proxy"] else ""))
+    fmt = lambda idx: ", ".join(channel_label(state, i) for i in idx) or "none"
+    state.system(f"  Uplink ↑:      {fmt(info['up'])}")
+    state.system(f"  Downlink ↓:    {fmt(info['down'])}")
+    with state.lock:
+        n, last = state.mqtt_rx, state.mqtt_last
+    if n:
+        ago = int(time.time() - last)
+        ago_s = f"{ago} s" if ago < 60 else (f"{ago // 60} min" if ago < 3600
+                                             else f"{ago // 3600} h")
+        state.system(f"  Received via MQTT this session: {n} packets (last {ago_s} ago)")
+    else:
+        state.system("  Received via MQTT this session: none yet")
+    if info["proxy"]:
+        state.system("  ↳ proxy_to_client: the device sends MQTT through the connected "
+                     "app (phone). While Mesh Console is the client, MQTT does not flow.")
+    state.system("  ↳ The firmware does not report the broker connection itself — "
+                 "packets received via MQTT are the only proof it works.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Location sending — history of recently used coordinates
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2565,6 +2690,10 @@ def _process_queue(state: MeshState):
                     relay = record_relay(state, packet, from_id)
                 except Exception:
                     relay = ""
+                if packet.get("viaMqtt"):
+                    with state.lock:
+                        state.mqtt_rx += 1
+                        state.mqtt_last = time.time()
                 _hl, _hs = packet.get("hopLimit", -1), packet.get("hopStart", -1)
                 if (from_id != state.my_id and not packet.get("viaMqtt")
                         and _hl >= 0 and _hs >= _hl):
@@ -3236,18 +3365,29 @@ class DeviceInfoScreen(ModalScreen):
             ("Hardware:",  s.device_hw or "(unknown)"),
             ("Firmware:",  s.device_fw or "(unknown)"),
             ("Hop limit:", f"{device_hop_limit(s)}  (DMs to farther nodes use more)"),
+            ("MQTT:",     Text(*mqtt_badge(s)) if s.connected else "(not connected)"),
             ("Battery:",  battery_str),
             ("Status:",    "Connected ●" if s.connected else "Disconnected ○"),
             ("Nodes (session):", str(len(s.nodes))),
             ("Node database:", str(s.node_db.size())),
             ("Messages:",      str(len(s.messages))),
         ]
+        mq = mqtt_info(s) if s.connected else None
+        if mq and mq["enabled"]:
+            chans = lambda idx: ", ".join(channel_label(s, i) for i in idx) or "none"
+            at = next(i for i, r in enumerate(rows) if r[0] == "MQTT:") + 1
+            rows[at:at] = [
+                ("MQTT server:", f"{mq['address']}  topic {mq['root']}"
+                                 + ("  TLS" if mq["tls"] else "")),
+                ("MQTT ↑ / ↓:", f"{chans(mq['up'])}  /  {chans(mq['down'])}"),
+            ]
         with Vertical(id="info-box"):
             yield Label("  Device information  ", id="info-title")
             for label, value in rows:
                 with Horizontal(classes="info-row"):
                     yield Label(label, classes="info-label")
-                    yield Label(Text(value), classes="info-value")
+                    yield Label(value if isinstance(value, Text) else Text(value),
+                                classes="info-value")
             yield Label("── Radio health ──", id="health-title")
             yield Static(id="health")
             yield Label("Press any key…", id="info-hint")
@@ -4421,6 +4561,7 @@ COMMANDS (type in the input line)
   /pos                   send location — type it or pick a recent one (= Ctrl+L)
   /pos LAT, LON [, ALT]  send these coordinates (e.g. /pos 52.22970, 21.01220)
   /retry                 resend the last DM by hand
+  /mqtt                  MQTT status: server, topic, channels, packets via MQTT
   /telem [on|off]        raw telemetry packets on / off (no arg = toggle)
   /clear  /cls           clear the screen
   //text                 send text that starts with "/" (//shrug → /shrug)
@@ -5029,6 +5170,9 @@ class MeshApp(App):
                 return
             if cmd in ("/clear", "/cls"):
                 self._clear_screen()
+                return
+            if cmd == "/mqtt":
+                show_mqtt(self._state)
                 return
             if cmd == "/retry":
                 retry_last_dm(self._state)

@@ -15,6 +15,7 @@ A terminal chat client for [Meshtastic](https://meshtastic.org) radios — conne
 - **Traceroute** — pick a node from a filterable list or `/tr NAME`
 - **Location** — send typed coordinates or one of the recent ones
 - **Radio health** (`Ctrl+O`) — channel utilization and TX airtime with a 1-hour trend, RX/TX counters, bad/duplicate packets, relay statistics, noise floor and "who relays to me"
+- **MQTT status** — the device info (`Ctrl+O`) shows whether MQTT is on, which channels go up/down, and warns when it can't work (no network, no channel, phone proxy); `/mqtt` gives server, topic and packets received via MQTT
 - **Telemetry view** — show all raw packets, optionally logged to a file
 - **Shell-like input** — `↑`/`↓` history kept between runs
 - **Calm scroll-back** — scroll up to read older messages; the view stays put and new lines are counted in the status bar
@@ -64,6 +65,7 @@ Type `/help` in the app for the full reference.
 | `/tr` · `/tr NAME` · `/tr !id` | Traceroute |
 | `/pos` · `/pos LAT, LON [, ALT]` | Send location |
 | `/retry` | Resend the last DM |
+| `/mqtt` | MQTT status: server, topic, channels, packets received via MQTT |
 | `/telem [on\|off]` | Toggle raw telemetry |
 | `/clear` | Clear the screen |
 | `//text` | Send text that starts with `/` |
