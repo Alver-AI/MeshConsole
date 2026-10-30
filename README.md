@@ -2,7 +2,7 @@
 
 A terminal chat client for [Meshtastic](https://meshtastic.org) radios — connect over **Bluetooth LE** or **WiFi/TCP** and chat on channels and in direct messages from a fast keyboard-driven TUI built with [Textual](https://textual.textualize.io).
 
-![Meshtastic Console — channel chat, replies, tapbacks, a private channel, traceroute and a DM](docs/screenshot.png)
+![Meshtastic Console — connected over BLE, with node positions in the message log](docs/screenshot.png)
 
 ## Features
 
