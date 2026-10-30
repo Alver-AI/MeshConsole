@@ -1,10 +1,15 @@
 # Changelog
 
-All notable changes to Mesh Console. The newest version is at the top.
+All notable changes to Meshtastic Console. The newest version is at the top.
 
 When `VERSION` in `mesh_console.py` changes on `main`, the release workflow
 creates the `vX.Y.Z` tag and a GitHub release whose notes are the section for
 that version below.
+
+## [1.5.1] - 2026-10-30
+
+**Changed**
+- Renamed to **Meshtastic Console** (was Mesh Console). The header reads `MESHTASTIC CONSOLE vX.Y.Z`, the same style as MeshCore Console.
 
 ## [1.5.0] - 2026-10-27
 

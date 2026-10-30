@@ -1,8 +1,8 @@
-# Mesh Console
+# Meshtastic Console
 
 A terminal chat client for [Meshtastic](https://meshtastic.org) radios — connect over **Bluetooth LE** or **WiFi/TCP** and chat on channels and in direct messages from a fast keyboard-driven TUI built with [Textual](https://textual.textualize.io).
 
-![Mesh Console — channel chat, replies, tapbacks, a private channel, traceroute and a DM](docs/screenshot.png)
+![Meshtastic Console — channel chat, replies, tapbacks, a private channel, traceroute and a DM](docs/screenshot.png)
 
 ## Features
 
@@ -87,7 +87,7 @@ In the node list: `Enter`/`d` DM · `t` traceroute · `i` NODEINFO · `m` map ·
 
 ## Local data
 
-Mesh Console stores its data **next to the script**. These files may contain private messages and locations — they are listed in `.gitignore`, keep them out of version control.
+Meshtastic Console stores its data **next to the script**. These files may contain private messages and locations — they are listed in `.gitignore`, keep them out of version control.
 
 | File | Contents |
 |---|---|
@@ -100,6 +100,6 @@ Mesh Console stores its data **next to the script**. These files may contain pri
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). Mesh Console uses the [Meshtastic Python library](https://github.com/meshtastic/python), which is also GPL-3.0.
+[GPL-3.0-or-later](LICENSE). Meshtastic Console uses the [Meshtastic Python library](https://github.com/meshtastic/python), which is also GPL-3.0.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. This is an independent community project, not affiliated with or endorsed by Meshtastic LLC.

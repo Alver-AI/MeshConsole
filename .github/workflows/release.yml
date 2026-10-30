@@ -56,4 +56,4 @@ jobs:
             exit 1
           fi
           gh release create "v$VERSION" --target "$GITHUB_SHA" \
-            --title "Mesh Console $VERSION" --notes-file notes.md
+            --title "Meshtastic Console $VERSION" --notes-file notes.md

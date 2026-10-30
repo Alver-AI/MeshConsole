@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Mesh Console — terminal chat client for Meshtastic
+# Meshtastic Console — terminal chat client for Meshtastic
 # Copyright (C) 2026 Alver-AI
 # SPDX-License-Identifier: GPL-3.0-or-later
 # https://github.com/Alver-AI/MeshConsole
 """
-mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.5.0
+mesh_console.py — Meshtastic Console Client (BLE + WiFi/TCP) v1.5.1
 Textual UI: upper area = messages, lower = input.
 
 Requirements:
@@ -473,7 +473,7 @@ class NodeDB:
 # Data model
 # ══════════════════════════════════════════════════════════════════════════════
 
-VERSION      = "1.5.0"
+VERSION      = "1.5.1"
 MAX_MESSAGES = 500
 
 TAPBACK_EMOJI = [
@@ -1798,7 +1798,7 @@ def mqtt_badge(state: "MeshState") -> tuple[str, str]:
     warn = "bold black on yellow"
     if info["proxy"]:
         # the device hands MQTT traffic to the connected client (normally the
-        # phone app) — Mesh Console does not proxy it
+        # phone app) — Meshtastic Console does not proxy it
         return ("⚠ MQTT proxy · inactive", warn)
     if not (info["wifi"] or info["eth"] or state.tcp_mode):
         return ("⚠ MQTT ON · no network", warn)
@@ -1852,7 +1852,7 @@ def show_mqtt(state: "MeshState") -> None:
         state.system("  Received via MQTT this session: none yet")
     if info["proxy"]:
         state.system("  ↳ proxy_to_client: the device sends MQTT through the connected "
-                     "app (phone). While Mesh Console is the client, MQTT does not flow.")
+                     "app (phone). While Meshtastic Console is the client, MQTT does not flow.")
     state.system("  ↳ The firmware does not report the broker connection itself — "
                  "packets received via MQTT are the only proof it works.")
 
@@ -4547,7 +4547,7 @@ INPUT_HISTORY_MAX  = 200
 
 
 HELP_TEXT = """\
-━━ MESH CONSOLE v{version} — HELP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━ MESHTASTIC CONSOLE v{version} — HELP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMMANDS (type in the input line)
   /help  /?              this help
   /ch                    show the channel you are writing on
@@ -4716,9 +4716,9 @@ class HistoryInput(Input):
 
 
 class MeshApp(App):
-    """Main Textual application — Mesh Console."""
+    """Main Textual application — Meshtastic Console."""
 
-    TITLE                  = f"Mesh Console v{VERSION}"
+    TITLE                  = f"MESHTASTIC CONSOLE v{VERSION}"
     ENABLE_COMMAND_PALETTE = False   # disables Ctrl+P
     CSS = """
     Screen {
@@ -4815,7 +4815,7 @@ class MeshApp(App):
     def compose(self) -> ComposeResult:
         mode = "WiFi" if self._state.tcp_mode else "BLE"
         with Horizontal(id="header-bar", classes="disconnected"):
-            yield Static(Text(f"MESH CONSOLE v{VERSION} [{mode}]"), id="hdr-left")
+            yield Static(Text(f"MESHTASTIC CONSOLE v{VERSION} [{mode}]"), id="hdr-left")
             yield Static("○ DISCONNECTED", id="hdr-center")
             yield Static(Text(f"{self._state.my_name} ({self._state.my_id})"), id="hdr-right")
         log = ChatLog(id="msg-log", highlight=False, markup=True, wrap=True,
@@ -5267,7 +5267,7 @@ class MeshApp(App):
         ts    = _ts_text(datetime.now().strftime("%H:%M:%S"))
         color = MSG_COLORS["system"]
         mode  = "WiFi/TCP" if st.tcp_mode else "BLE"
-        lines = [f"Mesh Console v{VERSION} — Esc to quit"]
+        lines = [f"MESHTASTIC CONSOLE v{VERSION} — Esc to quit"]
         if st.connected:
             dev = " ".join(x for x in (st.device_hw, st.device_fw) if x) or "Meshtastic"
             with st.lock:
@@ -5654,7 +5654,7 @@ class QuitConfirmScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "Exit Mesh Console?\n\n"
+            "Exit Meshtastic Console?\n\n"
             "[bold]ENTER / Y[/bold] — quit\n"
             "[bold]ESC / N[/bold]   — cancel"
         )
@@ -5721,7 +5721,7 @@ def main():
         sys.exit(1)
 
     state = MeshState(logfile=args.log or "", telemetry=args.telemetry)
-    state.system("Mesh Console ready.")
+    state.system("Meshtastic Console ready.")
     state.system("Commands: /channels - list   /ch NAME - switch   /join NAME [KEY] - add   "
                  "/leave NAME   /clear")
     if args.telemetry:
